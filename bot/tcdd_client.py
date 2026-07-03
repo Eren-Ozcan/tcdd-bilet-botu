@@ -72,8 +72,11 @@ def fetch_stations_from_api():
 def ensure_stations():
     stations = load_stations()
     if not stations:
-        stations = fetch_stations_from_api()
-        save_stations(stations)
+        try:
+            stations = fetch_stations_from_api()
+            save_stations(stations)
+        except Exception as e:
+            print(f"Istasyon listesi API'den cekilemedi, bos liste ile devam: {e}")
     return stations
 
 

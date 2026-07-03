@@ -1,1 +1,13 @@
-[]
+[
+  {
+    "id": 1,
+    "chat_id": 0,
+    "kalkis_ad": "Ankara Gar",
+    "kalkis_id": 234516259,
+    "varis_ad": "İstanbul(Söğütlüçeşme)",
+    "varis_id": 15917435912,
+    "tarih": "2026-07-10",
+    "saat": null,
+    "created_at": "2026-07-03T00:00:00"
+  }
+]
