@@ -21,7 +21,18 @@ def normalize(text):
 
 
 def _headers():
-    return {"Authorization": config.TCDD_AUTH_HEADER, "Content-Type": "application/json"}
+    return {
+        "Authorization": config.TCDD_AUTH_HEADER,
+        "Content-Type": "application/json",
+        "Accept": "application/json, text/plain, */*",
+        "Accept-Language": "tr-TR,tr;q=0.9,en-US;q=0.8,en;q=0.7",
+        "User-Agent": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+            "(KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+        ),
+        "Origin": "https://ebilet.tcddtasimacilik.gov.tr",
+        "Referer": "https://ebilet.tcddtasimacilik.gov.tr/",
+    }
 
 
 def load_stations():
