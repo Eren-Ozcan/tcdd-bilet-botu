@@ -1,8 +1,12 @@
 name: TCDD Bilet Takip Botu
 
+# NOT: Zamanlanmis (cron) tetikleyici bilerek KAPALI.
+# TCDD'nin API'si GitHub Actions'in bulut IP araligini engelliyor
+# (istasyon ve sefer sorgulari ayni "405 Method Not Allowed" hatasini
+# donduruyor) - bu yuzden bot artik yerel bilgisayardan calistiriliyor,
+# bkz. README.md "Alternatif: kendi bilgisayarindan calistirma".
+# Bu workflow sadece elle (workflow_dispatch) tekrar test etmek icin duruyor.
 on:
-  schedule:
-    - cron: "*/5 * * * *"
   workflow_dispatch: {}
 
 permissions:

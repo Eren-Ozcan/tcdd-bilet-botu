@@ -3,7 +3,7 @@
 TCDD (ebilet.tcddtasimacilik.gov.tr) uzerinde belirttigin sefer icin bos yer
 acildiginda (iade, iptal vb. sebeplerle) Telegram uzerinden bildirim gonderen
 ucretsiz bir bot. Telegram'a komut atarak takip ekler/silersin, arka planda
-GitHub Actions her birkac dakikada bir kontrol edip yer bulunca sana mesaj
+calisan bir script duzenli araliklarla kontrol edip yer bulunca sana mesaj
 atar.
 
 **Onemli uyari:** Bu proje TCDD ile resmi bir baglantisi yoktur, ebilet
@@ -12,20 +12,17 @@ kullanir (kimseye ozel bir hesap bilgisi kullanilmaz). Kisisel kullanim
 icindir; makul sikilikta (varsayilan 5 dakikada bir) calisacak sekilde
 ayarlanmistir, bunu arttirmak TCDD sunucularina gereksiz yuk bindirebilir.
 
-## Bilinen kisit: GitHub Actions'in IP'si engellenmis olabilir
+## Onemli: GitHub Actions (bulut) calismiyor, yerelde calistirilmali
 
-TCDD'nin API sunucusu bazi bulut/veri merkezi IP araliklarindan gelen
-baglantilari reddediyor (bunu test ettim, TCDD'nin ana web sitesi acikken API
-sunucusuyla TLS baglantisi hic kurulamiyordu). GitHub Actions runner'lari da
-bulut IP'si kullandigi icin engellenmis olabilirler; bu ancak gercek bir
-calistirma ile anlasilir. Bu yuzden **kurulumdan hemen sonra Actions
-sekmesinden "Run workflow" ile bir kere manuel calistir** ve loglarda hata
-olup olmadigina bak (asagida "Test etme" bolumune bak).
-
-Eger GitHub Actions engellenmisse, tek satir kod degistirmeden ayni botu
-kendi bilgisayarindan da calistirabilirsin (asagida "Alternatif: kendi
-bilgisayarindan calistirma" bolumune bak) - cunku Turkiye'deki ev/mobil
-IP'leri genellikle engellenmiyor.
+Bunu test ettim: TCDD'nin API'si, GitHub Actions runner'larinin (ve muhtemelen
+her bulut/veri merkezi IP'sinin) yaptigi istekleri sessizce reddediyor -
+hem istasyon listesi hem sefer sorgusu ayni sahte "405 Method Not Allowed"
+hatasini donduruyor, header/istek icerigi fark etmiyor. Bu bir kod hatasi
+degil, TCDD'nin IP tabanli bir bot/anti-scraping korumasi. Bu yuzden proje
+**GitHub Actions cron'u kapali** geliyor (`.github/workflows/tcdd-bot.yml`
+sadece elle test icin duruyor), bot **kendi bilgisayarindan** calistirilmali
+- Turkiye'deki ev/mobil IP'ler bu korumaya takilmiyor. Asagidaki "Yerel
+calistirma" bolumunu takip et.
 
 ## Kurulum
 
@@ -36,45 +33,64 @@ IP'leri genellikle engellenmiyor.
    bitmeli, orn. `benim_tcdd_bot`).
 3. BotFather sana bir **token** verecek (orn.
    `123456789:AAExxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`). Bunu sonraki adimda
-   kullanacaksin, kimseyle paylasma.
+   kullanacaksin, kimseyle paylasma (sohbete de yapistirma - bir yere gizlice
+   not al).
+4. Botunun kullanici adini Telegram'da arayip sohbeti ac, **/start** yaz.
+   Bu sart: Telegram, bot sana ancak sen ona ilk mesaji attiktan sonra
+   bildirim gonderebilir.
 
-### 2. Bu klasoru GitHub'a yukle
+### 2. Yerel calistirma icin hazirla
 
-1. GitHub'da yeni bir repo olustur (public onerilir, asagidaki "Neden public"
-   bolumune bak).
-2. Bu klasordeki dosyalari o repoya push et:
+PowerShell'de proje klasorunde:
 
+```powershell
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+### 3. Botu calistir
+
+```powershell
+$env:TELEGRAM_BOT_TOKEN = "<BotFather'dan aldigin token>"
+python -m bot.main
+```
+
+Hata almadan biterse (konsola bir sey basmadan kapanabilir, bu normal)
+kurulum dogru demektir. `data/` klasorundeki dosyalar (watches.json,
+seen.json, offset.json, stations.json) durumu diskte tutar, git'e commit
+etmene gerek yoktur.
+
+### 4. Duzenli calismasi icin Gorev Zamanlayici (Task Scheduler) kur
+
+Bot'un boslugu fark edebilmesi icin bu komutun duzenli araliklarla (ornegin
+5 dakikada bir) calismasi gerekiyor. Windows'ta:
+
+1. Baslat menusune **"Gorev Zamanlayicisi"** (Task Scheduler) yaz, ac.
+2. Sag panelden **"Temel Gorev Olustur..."** (Create Basic Task) sec.
+3. Isim ver, orn. `TCDD Bilet Botu`, Ileri.
+4. Tetikleyici olarak **"Gunluk"** (Daily) sec, Ileri, bir baslangic saati
+   ver, Ileri.
+5. Eylem olarak **"Bir program baslat"** (Start a program) sec, Ileri.
+6. Program/script alanina: `powershell.exe`
+   Bagimsiz degiskenler (Arguments) alanina asagidakini yapistir (token ve
+   proje yolunu kendine gore duzenle):
    ```
-   git init
-   git add .
-   git commit -m "TCDD bilet takip botu"
-   git branch -M main
-   git remote add origin <REPO_URL>
-   git push -u origin main
+   -NoProfile -Command "$env:TELEGRAM_BOT_TOKEN='<token>'; cd 'C:\Users\ereno\OneDrive\Masaüstü\projects\TCDD'; .\.venv\Scripts\python.exe -m bot.main"
    ```
+7. Sihirbazi bitir. Sonra olusturdugun gorevi bul, sag tikla **"Ozellikler"**
+   (Properties) ac, **"Tetikleyiciler"** (Triggers) sekmesine git, tetikleyiciyi
+   duzenle ve **"Gorevi tekrarla"** (Repeat task every) kutusunu isaretleyip
+   **5 dakika** sec, sure olarak **"Sinirsiz"** (Indefinitely) sec.
+8. Kaydet. Artik bilgisayarin acikken her 5 dakikada bir arka planda calisip
+   Telegram komutlarini ve boslukları kontrol edecek.
 
-### 3. Bot token'ini GitHub Secret olarak ekle
-
-Repo sayfasinda: **Settings > Secrets and variables > Actions > New
-repository secret**
-
-- Name: `TELEGRAM_BOT_TOKEN`
-- Value: BotFather'dan aldigin token
-
-### 4. Test etme
-
-Repo sayfasinda **Actions** sekmesine git, "TCDD Bilet Takip Botu"
-workflow'unu sec, **Run workflow** butonuna bas. Calisma bitince loglara bak:
-
-- Hata yoksa ve "sefer sorgusu basarisiz" gibi baglanti hatalari
-  gorunmuyorsa: her sey yolunda, cron her 5 dakikada bir otomatik calisacak.
-- `ConnectionError`, `timeout` veya benzeri agsal hatalar goruyorsan: GitHub
-  Actions'in IP'si TCDD tarafindan engellenmis demektir, asagidaki alternatif
-  yontemi kullan.
+*(Bilgisayarin kapaliyken bot da calismaz - bu yontemin dogasi bu. Surekli
+acik kalan bir bilgisayarin/mini PC'nin varsa en guvenilir yontem budur.)*
 
 ### 5. Botu kullan
 
-Telegram'da olusturdugun bota git, `/start` yaz, sonra:
+Telegram'da olusturdugun botla sohbete:
 
 ```
 /izle Ankara;Istanbul;2026-07-10
@@ -93,33 +109,14 @@ ebilet.tcddtasimacilik.gov.tr adresine gidip islemi tamamlaman gerekir (bot
 bilet satin almaz, sadece haber verir), yerler cok hizli doldugu icin
 bildirimi gorur gormez islem yapmalisin.
 
-## Neden public repo?
+## GitHub reposu ne ise yariyor?
 
-GitHub Actions'in ucretsiz dakika kotasi private repo'larda ayda 2000
-dakika, public repo'larda ise sinirsizdir. Her 5 dakikada bir calisan bir
-cron is icin private repoda bu kota hizla dolar. Repoda TELEGRAM_BOT_TOKEN
-gizli (Secret) olarak tutuldugu, `data/` klasorundeki bilgiler de (izlenen
-guzergah/tarih) hassas olmadigi icin public yapmak guvenlik acisindan sorun
-yaratmaz. Yine de private tutup kontrol sikligini `.github/workflows/tcdd-bot.yml`
-icindeki cron degerini orn. `*/30 * * * *` yaparak kotaya sigdirabilirsin.
-
-## Alternatif: kendi bilgisayarindan calistirma
-
-GitHub Actions engellenirse veya hic kullanmak istemezsen, ayni kod kendi
-bilgisayarinda da calisir (state `data/` klasorundeki dosyalarda tutuluyor,
-git'e commit etmene gerek yok):
-
-```
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-$env:TELEGRAM_BOT_TOKEN = "<token>"
-python -m bot.main
-```
-
-Bunu duzenli araliklarla calistirmak icin Windows Gorev Zamanlayicisi'nda
-("Task Scheduler") her 5 dakikada bir tetiklenen bir gorev olusturabilirsin,
-ya da basit bir dongu ile surekli acik birakabilirsin.
+Kod https://github.com/Eren-Ozcan/tcdd-bilet-botu adresinde yedekli
+tutuluyor ve `.github/workflows/tcdd-bot.yml` hala repoda duruyor - ama
+zamanlanmis (cron) tetikleyicisi kapatildi, sadece "Run workflow" ile elle
+tetiklenebiliyor (TCDD birgun bu engellemeyi kaldirirsa ya da baska bir
+bulut saglayici engellenmezse diye). Gunluk kullanim tamamen yerel
+bilgisayarindan, GitHub'a hic dokunmadan yapiliyor.
 
 ## Dosya yapisi
 
@@ -135,5 +132,5 @@ data/
   watches.json           Aktif takipler
   seen.json              Daha once bildirilen koltuklar (tekrar bildirim atmamak icin)
   offset.json             Son islenen Telegram update_id
-.github/workflows/tcdd-bot.yml   5 dakikada bir calisan GitHub Actions cron'u
+.github/workflows/tcdd-bot.yml   Sadece elle (workflow_dispatch) tetiklenen test workflow'u
 ```
