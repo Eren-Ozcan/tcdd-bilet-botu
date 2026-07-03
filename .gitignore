@@ -2,3 +2,9 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# Kisisel calisma zamani verisi (chat_id, izlenen guzergahlar) - artik
+# sadece yerelde calisiyor, GitHub'da tutulmasina gerek yok
+data/watches.json
+data/seen.json
+data/offset.json

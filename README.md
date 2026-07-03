@@ -7,22 +7,33 @@ calisan bir script duzenli araliklarla kontrol edip yer bulunca sana mesaj
 atar.
 
 **Onemli uyari:** Bu proje TCDD ile resmi bir baglantisi yoktur, ebilet
-sitesinin kendi frontend'inin kullandigi genel/herkese acik sorgu ucunu
-kullanir (kimseye ozel bir hesap bilgisi kullanilmaz). Kisisel kullanim
-icindir; makul sikilikta (varsayilan 5 dakikada bir) calisacak sekilde
-ayarlanmistir, bunu arttirmak TCDD sunucularina gereksiz yuk bindirebilir.
+sitesini gercek bir tarayiciyla (Playwright/Chromium) acip tipki bir
+kullanicinin yaptigi gibi formu doldurup sonuc sayfasini okur - hic kimseye
+ozel bir hesap bilgisi kullanilmaz. Kisisel kullanim icindir; makul
+sikilikta (varsayilan 5 dakikada bir) calisacak sekilde ayarlanmistir,
+bunu arttirmak TCDD sunucularina gereksiz yuk bindirebilir.
 
-## Onemli: GitHub Actions (bulut) calismiyor, yerelde calistirilmali
+## Onemli: TCDD'nin JSON API'si engelli, site tarayiciyla otomatize ediliyor
 
-Bunu test ettim: TCDD'nin API'si, GitHub Actions runner'larinin (ve muhtemelen
-her bulut/veri merkezi IP'sinin) yaptigi istekleri sessizce reddediyor -
-hem istasyon listesi hem sefer sorgusu ayni sahte "405 Method Not Allowed"
-hatasini donduruyor, header/istek icerigi fark etmiyor. Bu bir kod hatasi
-degil, TCDD'nin IP tabanli bir bot/anti-scraping korumasi. Bu yuzden proje
-**GitHub Actions cron'u kapali** geliyor (`.github/workflows/tcdd-bot.yml`
-sadece elle test icin duruyor), bot **kendi bilgisayarindan** calistirilmali
-- Turkiye'deki ev/mobil IP'ler bu korumaya takilmiyor. Asagidaki "Yerel
-calistirma" bolumunu takip et.
+Bu proje once TCDD'nin dogrudan JSON API'sini (api-yebsp.tcddtasimacilik.gov.tr)
+kullaniyordu, ama test ettikce su ortaya cikti: bu API artik tarayici
+disindaki HER istemciyi (curl, requests, hatta headless bir tarayicinin
+`fetch()` cagrisini bile) reddediyor - gercek bir Turkiye ev IP'sinden bile.
+GitHub Actions'in bulut IP'si de ayni sekilde engelleniyor. Bu bir kod hatasi
+degil, TCDD'nin bot/anti-scraping korumasi.
+
+Cozum: gercek siteyi (ebilet.tcddtasimacilik.gov.tr) Playwright ile bir
+Chromium tarayicisinda acip, "Nereden/Nereye/Tarih" formunu tipki bir insan
+gibi doldurup "Sefer Ara" butonuna basiyoruz, sonucu HTML'den okuyoruz
+(`bot/tcdd_browser.py`). Sade Playwright de yetmedi - otomasyon izlerini
+(`navigator.webdriver` vb.) gizleyen ek onlemler gerekti, bunlar zaten
+kodda var. Bu yuzden:
+
+- GitHub Actions cron'u kapali (`.github/workflows/tcdd-bot.yml` sadece
+  elle test icin duruyor, bulut IP'siyle bu yeni tarayici tabanli yontem
+  test edilmedi).
+- Bot **kendi bilgisayarindan**, Turkiye'deki gercek IP'nle calistirilmali.
+  Asagidaki kurulumu takip et.
 
 ## Kurulum
 
@@ -47,7 +58,11 @@ PowerShell'de proje klasorunde:
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements.txt
+python -m playwright install chromium
 ```
+
+Son satir, botun sitede gezinmek icin kullanacagi Chromium tarayicisini
+indirir (~110 MB, bir kere yapman yeterli).
 
 ### 3. Botu calistir
 
@@ -114,23 +129,29 @@ bildirimi gorur gormez islem yapmalisin.
 Kod https://github.com/Eren-Ozcan/tcdd-bilet-botu adresinde yedekli
 tutuluyor ve `.github/workflows/tcdd-bot.yml` hala repoda duruyor - ama
 zamanlanmis (cron) tetikleyicisi kapatildi, sadece "Run workflow" ile elle
-tetiklenebiliyor (TCDD birgun bu engellemeyi kaldirirsa ya da baska bir
-bulut saglayici engellenmezse diye). Gunluk kullanim tamamen yerel
-bilgisayarindan, GitHub'a hic dokunmadan yapiliyor.
+tetiklenebiliyor. Yeni tarayici tabanli yontem GitHub Actions'ta hic test
+edilmedi (bulut IP'siyle calisip calismayacagi bilinmiyor). Gunluk kullanim
+tamamen yerel bilgisayarindan, GitHub'a hic dokunmadan yapiliyor.
+
+`data/watches.json`, `data/seen.json` ve `data/offset.json` artik git'e
+commit edilmiyor (`.gitignore`'da) - bunlar senin kisisel takip listeni ve
+Telegram chat ID'ni icerdigi icin sadece yerel diskte kaliyor, public repoda
+gorunmuyor.
 
 ## Dosya yapisi
 
 ```
 bot/
-  config.py           TCDD/Telegram sabitleri, dosya yollari
-  tcdd_client.py       TCDD API istekleri (istasyon, sefer, koltuk sorgusu)
-  telegram_client.py   Telegram getUpdates/sendMessage
-  commands.py          /izle /liste /iptal /yardim komutlarinin islenmesi
-  main.py              Ana akis: komutlari isle, takipleri kontrol et, bildir
+  config.py            Telegram sabitleri, dosya yollari
+  tcdd_client.py        Istasyon adi eslestirme (Turkce karakter duyarsiz arama)
+  tcdd_browser.py       Playwright ile ebilet sitesini acip form doldurma, sonuc kazima
+  telegram_client.py    Telegram getUpdates/sendMessage
+  commands.py           /izle /liste /iptal /yardim komutlarinin islenmesi
+  main.py               Ana akis: komutlari isle, takipleri kontrol et, bildir
 data/
-  stations.json         Istasyon adi -> id (ilk calistirmada otomatik doldurulur)
-  watches.json           Aktif takipler
-  seen.json              Daha once bildirilen koltuklar (tekrar bildirim atmamak icin)
-  offset.json             Son islenen Telegram update_id
+  stations.json          Istasyon adi -> id (Telegram komutlarinda ad eslestirme icin, statik)
+  watches.json           Aktif takipler (git'e commit edilmiyor)
+  seen.json              Daha once bildirilen yerler (git'e commit edilmiyor)
+  offset.json            Son islenen Telegram update_id (git'e commit edilmiyor)
 .github/workflows/tcdd-bot.yml   Sadece elle (workflow_dispatch) tetiklenen test workflow'u
 ```

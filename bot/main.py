@@ -1,7 +1,6 @@
 import datetime
-import time
 
-from . import commands, config, storage, tcdd_client, telegram_client
+from . import commands, storage, tcdd_browser, tcdd_client, telegram_client
 
 
 def process_telegram_commands(watches, stations):
@@ -42,58 +41,21 @@ def check_watch(watch, seen):
     new_findings = []
 
     try:
-        seferler = tcdd_client.search_seferler(
-            watch["kalkis_ad"], watch["kalkis_id"],
-            watch["varis_ad"], watch["varis_id"],
-            watch["tarih"],
+        results = tcdd_browser.search_available_seats(
+            watch["kalkis_ad"], watch["varis_ad"], watch["tarih"], watch.get("saat")
         )
     except Exception as e:
-        print(f"[{watch_id}] sefer sorgusu basarisiz: {e}")
+        print(f"[{watch_id}] tarayici sorgusu basarisiz: {e}")
         return []
 
-    if watch.get("saat"):
-        filtered = []
-        for sefer in seferler:
-            try:
-                sefer_time = datetime.datetime.strptime(
-                    sefer["binisTarih"], "%b %d, %Y %I:%M:%S %p"
-                )
-            except (KeyError, ValueError):
-                continue
-            if sefer_time.strftime("%H:%M") == watch["saat"]:
-                filtered.append(sefer)
-        seferler = filtered
+    current_keys = set()
+    for r in results:
+        key = f"{r['train_no']}:{r['wagon_label']}:{r['departure_time']}"
+        current_keys.add(key)
+        if key not in seen_keys:
+            new_findings.append(r)
 
-    seferler = seferler[: config.MAX_SEFER_PER_WATCH]
-
-    for sefer in seferler:
-        sefer_id = sefer.get("seferId")
-        tren_adi = sefer.get("trenAdi", "?")
-        binis_tarih = sefer.get("binisTarih", "?")
-        for vagon_tipi in sefer.get("vagonTipleriBosYerUcret", []):
-            for vagon in vagon_tipi.get("vagonListesi", []):
-                vagon_sira_no = vagon.get("vagonSiraNo")
-                time.sleep(config.REQUEST_DELAY_SECONDS)
-                try:
-                    seat_numbers = tcdd_client.get_available_seats(
-                        sefer_id, vagon_sira_no, watch["kalkis_ad"], watch["varis_ad"]
-                    )
-                except Exception as e:
-                    print(f"[{watch_id}] koltuk sorgusu basarisiz: {e}")
-                    continue
-                for koltuk_no in seat_numbers:
-                    key = f"{sefer_id}:{vagon_sira_no}:{koltuk_no}"
-                    if key in seen_keys:
-                        continue
-                    seen_keys.add(key)
-                    new_findings.append({
-                        "tren_adi": tren_adi,
-                        "binis_tarih": binis_tarih,
-                        "vagon_sira_no": vagon_sira_no,
-                        "koltuk_no": koltuk_no,
-                    })
-
-    seen[watch_id] = list(seen_keys)
+    seen[watch_id] = list(current_keys)
     return new_findings
 
 
@@ -106,8 +68,9 @@ def notify(watch, findings):
     ]
     for f in findings[:20]:
         lines.append(
-            f"- {f['tren_adi']} | {f['binis_tarih']} | Vagon {f['vagon_sira_no']} | "
-            f"Koltuk {f['koltuk_no']}"
+            f"- {f['train_name']} (Tren {f['train_no']}) | {f['departure_time']} -> "
+            f"{f['arrival_time']} | {f['wagon_label']} | {f['seats_display']} koltuk | "
+            f"{f['price']}"
         )
     if len(findings) > 20:
         lines.append(f"... ve {len(findings) - 20} yer daha")
