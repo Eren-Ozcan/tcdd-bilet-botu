@@ -35,6 +35,16 @@ def _headers():
     }
 
 
+def _post(url, body):
+    resp = requests.post(url, json=body, headers=_headers(), timeout=config.HTTP_TIMEOUT)
+    if not resp.ok:
+        print(f"TCDD HTTP {resp.status_code} - {url}")
+        print(f"Istek govdesi: {json.dumps(body, ensure_ascii=False)}")
+        print(f"Yanit govdesi: {resp.text[:2000]!r}")
+    resp.raise_for_status()
+    return resp
+
+
 def load_stations():
     if not os.path.exists(config.STATIONS_FILE):
         return {}
@@ -51,10 +61,7 @@ def save_stations(stations):
 
 def fetch_stations_from_api():
     body = {"kanalKodu": "3", "dil": 1, "tarih": "Nov 10, 2011 12:00:00 AM", "satisSorgu": True}
-    resp = requests.post(
-        config.ISTASYON_YUKLE_URL, json=body, headers=_headers(), timeout=config.HTTP_TIMEOUT
-    )
-    resp.raise_for_status()
+    resp = _post(config.ISTASYON_YUKLE_URL, body)
     data = resp.json()
     return {s["istasyonAdi"]: s["istasyonId"] for s in data["istasyonBilgileriList"]}
 
@@ -100,10 +107,7 @@ def search_seferler(kalkis_ad, kalkis_id, varis_ad, varis_id, tarih):
             "aktarmalarGelsin": True,
         },
     }
-    resp = requests.post(
-        config.SEFER_SORGULA_URL, json=body, headers=_headers(), timeout=config.HTTP_TIMEOUT
-    )
-    resp.raise_for_status()
+    resp = _post(config.SEFER_SORGULA_URL, body)
     data = resp.json()
     if data.get("cevapBilgileri", {}).get("cevapKodu") != "000":
         return []
@@ -119,10 +123,7 @@ def get_available_seats(sefer_id, vagon_sira_no, kalkis_ad, varis_ad):
         "binisIst": kalkis_ad,
         "InisIst": varis_ad,
     }
-    resp = requests.post(
-        config.VAGON_SEAT_URL, json=body, headers=_headers(), timeout=config.HTTP_TIMEOUT
-    )
-    resp.raise_for_status()
+    resp = _post(config.VAGON_SEAT_URL, body)
     data = resp.json()
     if data.get("cevapBilgileri", {}).get("cevapKodu") != "000":
         return []
