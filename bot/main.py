@@ -1,6 +1,22 @@
 import datetime
+import logging
+import logging.handlers
+import os
 
-from . import commands, storage, tcdd_browser, tcdd_client, telegram_client
+from . import commands, config, storage, tcdd_browser, tcdd_client, telegram_client
+
+logger = logging.getLogger(__name__)
+
+
+def setup_logging():
+    os.makedirs(config.DATA_DIR, exist_ok=True)
+    handler = logging.handlers.RotatingFileHandler(
+        config.LOG_FILE, maxBytes=1_000_000, backupCount=1, encoding="utf-8"
+    )
+    handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(message)s"))
+    root = logging.getLogger()
+    root.setLevel(logging.INFO)
+    root.addHandler(handler)
 
 
 def process_telegram_commands(watches, stations):
@@ -19,7 +35,7 @@ def process_telegram_commands(watches, stations):
         try:
             telegram_client.send_message(chat_id, reply)
         except Exception as e:
-            print(f"Telegram mesaji gonderilemedi: {e}")
+            logger.error("Telegram mesaji gonderilemedi: %s", e)
     if last_update_id != offset:
         storage.save_offset(last_update_id)
 
@@ -45,7 +61,7 @@ def check_watch(watch, seen):
             watch["kalkis_ad"], watch["varis_ad"], watch["tarih"], watch.get("saat")
         )
     except Exception as e:
-        print(f"[{watch_id}] tarayici sorgusu basarisiz: {e}")
+        logger.error("[%s] tarayici sorgusu basarisiz: %s", watch_id, e)
         return []
 
     current_keys = set()
@@ -82,24 +98,32 @@ def notify(watch, findings):
     try:
         telegram_client.send_message(watch["chat_id"], "\n".join(lines))
     except Exception as e:
-        print(f"Bildirim gonderilemedi: {e}")
+        logger.error("Bildirim gonderilemedi: %s", e)
 
 
 def main():
-    stations = tcdd_client.ensure_stations()
-    watches = storage.load_watches()
-    seen = storage.load_seen()
+    logger.info("Calisma basladi")
+    try:
+        stations = tcdd_client.ensure_stations()
+        watches = storage.load_watches()
+        seen = storage.load_seen()
 
-    process_telegram_commands(watches, stations)
-    watches = expire_old_watches(watches, seen)
+        process_telegram_commands(watches, stations)
+        watches = expire_old_watches(watches, seen)
 
-    for watch in watches:
-        findings = check_watch(watch, seen)
-        notify(watch, findings)
+        for watch in watches:
+            findings = check_watch(watch, seen)
+            notify(watch, findings)
 
-    storage.save_watches(watches)
-    storage.save_seen(seen)
+        storage.save_watches(watches)
+        storage.save_seen(seen)
+    except Exception:
+        logger.exception("Calisma hata ile sonlandi")
+        raise
+    else:
+        logger.info("Calisma tamamlandi (%d takip kontrol edildi)", len(watches))
 
 
 if __name__ == "__main__":
+    setup_logging()
     main()

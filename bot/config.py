@@ -9,5 +9,6 @@ STATIONS_FILE = os.path.join(DATA_DIR, "stations.json")
 WATCHES_FILE = os.path.join(DATA_DIR, "watches.json")
 SEEN_FILE = os.path.join(DATA_DIR, "seen.json")
 OFFSET_FILE = os.path.join(DATA_DIR, "offset.json")
+LOG_FILE = os.path.join(DATA_DIR, "bot.log")
 
 HTTP_TIMEOUT = 15

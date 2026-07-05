@@ -8,3 +8,4 @@ venv/
 data/watches.json
 data/seen.json
 data/offset.json
+data/bot.log*
