@@ -91,7 +91,7 @@ Bot'un boslugu fark edebilmesi icin bu komutun duzenli araliklarla (ornegin
    Bagimsiz degiskenler (Arguments) alanina asagidakini yapistir (token ve
    proje yolunu kendine gore duzenle):
    ```
-   -NoProfile -Command "$env:TELEGRAM_BOT_TOKEN='<token>'; cd 'C:\Users\ereno\OneDrive\Masaüstü\projects\TCDD'; .\.venv\Scripts\python.exe -m bot.main"
+   -NoProfile -Command "$env:TELEGRAM_BOT_TOKEN='<token>'; cd 'C:\Projects\TCDD'; .\.venv\Scripts\python.exe -m bot.main"
    ```
 7. Sihirbazi bitir. Sonra olusturdugun gorevi bul, sag tikla **"Ozellikler"**
    (Properties) ac, **"Tetikleyiciler"** (Triggers) sekmesine git, tetikleyiciyi
